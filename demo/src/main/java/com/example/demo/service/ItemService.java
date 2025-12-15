@@ -7,8 +7,10 @@ import com.example.demo.repository.ItemRepository;
 import com.example.demo.service.response.ItemPageResponse;
 import com.example.demo.service.response.ItemResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ItemService {
@@ -16,18 +18,21 @@ public class ItemService {
     private final ItemRepository itemRepository;
 
     public ItemResponse read(Long itemId) {
+        log.info("datasource 에서 조회 시도 itemId={}", itemId);
         return itemRepository.read(itemId)
                 .map(ItemResponse::from)
                 .orElse(null);
     }
 
     public ItemPageResponse readAll(Long page, Long pageSize) {
+        log.info("datasource 에서 조회 시도 page={}, pageSize={}", page, pageSize);
         var items = itemRepository.readAll(page, pageSize);
         var count = itemRepository.count();
         return ItemPageResponse.from(items, count);
     }
 
     public ItemPageResponse readAllInfiniteScroll(Long lastItemId, Long pageSize) {
+        log.info("datasource 에서 조회 시도 lastItemId={}, pageSize={}", lastItemId, pageSize);
         var items = itemRepository.readAllInfiniteScroll(lastItemId, pageSize);
         var count = itemRepository.count();
         return ItemPageResponse.from(items, count);
