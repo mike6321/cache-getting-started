@@ -1,0 +1,95 @@
+package com.example.demo.service.strategy.bloomfilter;
+
+import com.example.demo.RedisTestContainerSupport;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.stream.IntStream;
+
+@SpringBootTest
+class BloomFilterRedisHandlerTest extends RedisTestContainerSupport {
+
+    @Autowired
+    BloomFilterRedisHandler bloomFilterRedisHandler;
+    
+    
+    @Test
+    void add() {
+        // given
+        BloomFilter bloomFilter = BloomFilter.create("testId", 1000, 0.01);
+
+        // when
+        bloomFilterRedisHandler.add(bloomFilter, "value");
+
+        // then
+        List<Long> hashedIndexes = bloomFilter.hash("value");
+        for (long offset = 0; offset < hashedIndexes.size(); offset++) {
+            Boolean result = redisTemplate.opsForValue().getBit("bloom-filter:" + bloomFilter.getId(), offset);
+            Assertions.assertThat(result).isEqualTo(hashedIndexes.contains(offset));
+        }
+    }
+
+
+    @Test
+    void delete() {
+        // given
+        BloomFilter bloomFilter = BloomFilter.create("testId", 1000, 0.01);
+        bloomFilterRedisHandler.add(bloomFilter, "value");
+
+        // when
+        bloomFilterRedisHandler.delete(bloomFilter);
+
+        // then
+        for (long offset = 0; offset < bloomFilter.getBitSize(); offset++) {
+            Boolean result = redisTemplate.opsForValue().getBit("bloom-filter:" + bloomFilter.getId(), offset);
+            Assertions.assertThat(result).isFalse();
+        }
+    }
+
+    @Test
+    void mightContain() {
+        // given
+        BloomFilter bloomFilter = BloomFilter.create("testId", 1000, 0.01);
+        List<String> values = IntStream.range(0, 1000).mapToObj(idx -> "value" + idx)
+                .toList();
+        for (String value : values) {
+            bloomFilterRedisHandler.add(bloomFilter, value);
+        }
+
+        // when, then
+        for (String value : values) {
+            boolean result = bloomFilterRedisHandler.mightContain(bloomFilter, value);
+            Assertions.assertThat(result).isTrue();
+        }
+
+        // 10000 번 중에 93번 오차 발생 (0.01)
+        for (int i = 0; i < 10000; i++) {
+            String value = "notAddedValue" + i;
+            boolean result = bloomFilterRedisHandler.mightContain(bloomFilter, value);
+            if (result) {
+                System.out.println("value = " + value);
+            }
+        }
+    }
+
+    @Test
+    void printExecutionTime_addToLargeBloomFilter() {
+        BloomFilter bloomFilter = BloomFilter.create("testId", 400_000_000L, 0.01);
+        List<Long> hashedIndexes = bloomFilter.hash("value");
+
+        long bitSize = bloomFilter.getBitSize();
+        System.out.println("bitSize = " + bitSize);
+        System.out.println("hashedIndexes = " + hashedIndexes);
+
+        long start = System.currentTimeMillis();
+        bloomFilterRedisHandler.add(bloomFilter, "value");
+        long millis = Duration.ofMillis(System.currentTimeMillis() - start).toMillis();
+        System.out.println("millis = " + millis);
+    }
+
+
+}
