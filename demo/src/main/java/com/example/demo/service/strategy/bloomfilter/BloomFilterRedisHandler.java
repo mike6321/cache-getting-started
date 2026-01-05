@@ -14,6 +14,17 @@ public class BloomFilterRedisHandler {
 
     private final StringRedisTemplate redisTemplate;
 
+    /**
+     * 최초에 큰 메모리를 할당하려면 블로킹이 발생할 수 있으며, 싱글 스레드 특성 상 다른 연산에 지연이 발생할 수 있다.
+     * BloomFilter 활성화 전에 내부 관리 도구에서 점차 메모리를 늘려가는 전략으로 미리 필요한 만큼 할당할 수 있다.
+     * */
+    public void init(BloomFilter bloomFilter) {
+        String generatedKey = generateKey(bloomFilter);
+        for (long offset = 0; offset < bloomFilter.getBitSize(); offset += 8L * 1024 * 1024 * 8 /* 8MB */) {
+            this.redisTemplate.opsForValue().setBit(generatedKey,offset,false);
+        }
+    }
+
     public void add(BloomFilter bloomFilter, String value) {
         this.redisTemplate.executePipelined(
                 (RedisCallback<?>) action -> {

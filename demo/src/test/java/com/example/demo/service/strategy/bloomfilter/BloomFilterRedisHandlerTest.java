@@ -76,6 +76,11 @@ class BloomFilterRedisHandlerTest extends RedisTestContainerSupport {
         }
     }
 
+    /**
+     * bitSize = 3834023351
+     * hashedIndexes = [197576891, 2998153757, 343984203, 2769396638, 1042554391, 1577456327, 3486933377]
+     * millis = 351
+     * */
     @Test
     void printExecutionTime_addToLargeBloomFilter() {
         BloomFilter bloomFilter = BloomFilter.create("testId", 400_000_000L, 0.01);
@@ -84,6 +89,28 @@ class BloomFilterRedisHandlerTest extends RedisTestContainerSupport {
         long bitSize = bloomFilter.getBitSize();
         System.out.println("bitSize = " + bitSize);
         System.out.println("hashedIndexes = " + hashedIndexes);
+
+        long start = System.currentTimeMillis();
+        bloomFilterRedisHandler.add(bloomFilter, "value");
+        long millis = Duration.ofMillis(System.currentTimeMillis() - start).toMillis();
+        System.out.println("millis = " + millis);
+    }
+
+    /**
+     * bitSize = 3834023351
+     * hashedIndexes = [197576891, 2998153757, 343984203, 2769396638, 1042554391, 1577456327, 3486933377]
+     * millis = 35
+     * */
+    @Test
+    void printExecutionTime_addToLargeBloomFilterAfterInit() {
+        BloomFilter bloomFilter = BloomFilter.create("testId", 400_000_000L, 0.01);
+        List<Long> hashedIndexes = bloomFilter.hash("value");
+
+        long bitSize = bloomFilter.getBitSize();
+        System.out.println("bitSize = " + bitSize);
+        System.out.println("hashedIndexes = " + hashedIndexes);
+
+        bloomFilterRedisHandler.init(bloomFilter);
 
         long start = System.currentTimeMillis();
         bloomFilterRedisHandler.add(bloomFilter, "value");
