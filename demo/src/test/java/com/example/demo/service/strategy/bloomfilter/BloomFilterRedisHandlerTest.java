@@ -118,5 +118,38 @@ class BloomFilterRedisHandlerTest extends RedisTestContainerSupport {
         System.out.println("millis = " + millis);
     }
 
+    /**
+     * 입력되는 데이터 수가 많아질수록 오차율 증가
+     * 1538 / 2000
+     *
+     *  문제의 핵심:
+     *   1. 설계 용량 초과: BloomFilter를 1,000개 용량으로 생성했는데 2,000개를 추가함
+     *   2. 비트 배열 포화: 더 많은 데이터를 추가할수록 1로 설정된 비트가 증가
+     *   3. 해시 충돌 증가: 새로운 값의 해시가 기존 비트와 겹칠 확률 상승
+     * */
+    @Test
+    void mightContain_whenBloomFilterTooManyData() {
+        // given
+        BloomFilter bloomFilter = BloomFilter.create("testId", 1000, 0.01);
+        List<String> values = IntStream.range(0, 2000).mapToObj(idx -> "value" + idx)
+                .toList();
+        for (String value : values) {
+            bloomFilterRedisHandler.add(bloomFilter, value);
+        }
+
+        // when, then
+        for (String value : values) {
+            boolean result = bloomFilterRedisHandler.mightContain(bloomFilter, value);
+            Assertions.assertThat(result).isTrue();
+        }
+
+        for (int i = 0; i < 10000; i++) {
+            String value = "notAddedValue" + i;
+            boolean result = bloomFilterRedisHandler.mightContain(bloomFilter, value);
+            if (result) {
+                System.out.println("value = " + value);
+            }
+        }
+    }
 
 }
